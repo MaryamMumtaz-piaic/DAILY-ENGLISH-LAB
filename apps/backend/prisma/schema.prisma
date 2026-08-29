@@ -1,0 +1,191 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  passwordHash  String
+  name          String
+  level         Level     @default(BEGINNER)
+  dailyGoalMin  Int       @default(20)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  refreshTokens   RefreshToken[]
+  sessions        PracticeSession[]
+  userMistakes    UserMistake[]
+  progressSnaps   ProgressSnapshot[]
+
+  @@index([email])
+}
+
+enum Level {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  revoked   Boolean  @default(false)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+}
+
+model PracticeSession {
+  id           String        @id @default(uuid())
+  userId       String
+  type         SessionType
+  status       SessionStatus @default(ACTIVE)
+  startedAt    DateTime      @default(now())
+  endedAt      DateTime?
+  durationSec  Int?
+  topic        String?
+
+  user         User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages     PracticeMessage[]
+  attempts     SpeechAttempt[]
+  corrections  Correction[]
+  snapshots    ProgressSnapshot[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([startedAt])
+}
+
+enum SessionType {
+  CONVERSATION
+  READ_SPEAK
+  FIX_ENGLISH
+}
+
+enum SessionStatus {
+  ACTIVE
+  COMPLETED
+  ABANDONED
+}
+
+model PracticeMessage {
+  id        String   @id @default(uuid())
+  sessionId String
+  role      Role
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+
+  session   PracticeSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@index([createdAt])
+}
+
+enum Role {
+  USER
+  ASSISTANT
+}
+
+model SpeechAttempt {
+  id          String   @id @default(uuid())
+  sessionId   String
+  userId      String
+  audioUrl    String
+  audioDurSec Float?
+  mimeType    String   @default("audio/webm")
+  transcript  String?  @db.Text
+  confidence  Float?
+  createdAt   DateTime @default(now())
+
+  session    PracticeSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  correction Correction?
+
+  @@index([sessionId])
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model Correction {
+  id                 String   @id @default(uuid())
+  sessionId          String
+  speechAttemptId    String?  @unique
+  originalText       String   @db.Text
+  correctedText      String   @db.Text
+  isCorrect          Boolean
+  overallScore       Int?
+  shouldRetry        Boolean  @default(false)
+  encouragement      String?
+  naturalAlternative String?  @db.Text
+  difficulty         String?
+  createdAt          DateTime @default(now())
+
+  session       PracticeSession    @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  speechAttempt SpeechAttempt?     @relation(fields: [speechAttemptId], references: [id])
+  mistakes      CorrectionMistake[]
+
+  @@index([sessionId])
+  @@index([createdAt])
+}
+
+model CorrectionMistake {
+  id           String @id @default(uuid())
+  correctionId String
+  type         String
+  category     String
+  original     String
+  corrected    String
+  explanation  String @db.Text
+  severity     String @default("medium")
+
+  correction Correction @relation(fields: [correctionId], references: [id], onDelete: Cascade)
+
+  @@index([correctionId])
+  @@index([category])
+}
+
+model UserMistake {
+  id          String   @id @default(uuid())
+  userId      String
+  category    String
+  frequency   Int      @default(1)
+  severity    String   @default("medium")
+  firstSeen   DateTime @default(now())
+  lastSeen    DateTime @default(now())
+  improvement Float    @default(0)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, category])
+  @@index([userId])
+  @@index([category])
+  @@index([lastSeen])
+}
+
+model ProgressSnapshot {
+  id                  String   @id @default(uuid())
+  userId              String
+  sessionId           String
+  durationMin         Int
+  sentencesPracticed  Int
+  areasPracticed      String[]
+  recurringMistakes   String[]
+  improvementSignals  String[]
+  recommendedFocus    String?
+  createdAt           DateTime @default(now())
+
+  user    User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  session PracticeSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
+}
