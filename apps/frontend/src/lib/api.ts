@@ -94,9 +94,8 @@ export const speechApi = {
   transcribe: (audioBlob: Blob, sessionId: string) => {
     const form = new FormData();
     form.append('audio', audioBlob, 'recording.webm');
-    form.append('sessionId', sessionId);
     return api.post<ApiResponse<{ transcript: string; correction?: Correction }>>(
-      '/api/v1/speech/transcribe',
+      `/api/v1/speech/transcribe?sessionId=${encodeURIComponent(sessionId)}`,
       form,
       { headers: { 'Content-Type': 'multipart/form-data' } }
     );

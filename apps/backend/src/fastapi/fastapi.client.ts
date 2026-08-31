@@ -1,6 +1,7 @@
 import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios, { AxiosInstance, AxiosError } from 'axios';
+import FormData from 'form-data';
 
 @Injectable()
 export class FastApiClient {
@@ -47,6 +48,30 @@ export class FastApiClient {
       user_id: userId,
       session_id: sessionId,
     });
+    return response.data;
+  }
+
+  async transcribeSpeechDirect(
+    audioBuffer: Buffer,
+    mimeType: string,
+    language: string,
+    userId: string,
+    sessionId: string,
+  ) {
+    const form = new FormData();
+    form.append('audio', audioBuffer, {
+      filename: 'audio.webm',
+      contentType: mimeType || 'audio/webm',
+    });
+    form.append('language', language);
+    form.append('user_id', userId);
+    form.append('session_id', sessionId);
+
+    const response = await this.client.post(
+      '/internal/v1/speech/transcribe-bytes',
+      form,
+      { headers: form.getHeaders() },
+    );
     return response.data;
   }
 

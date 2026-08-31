@@ -34,7 +34,7 @@ export class PracticeService {
     const session = await this.sessionsService.create(userId, dto.type, dto.topic);
 
     // Start conversation with AI service
-    let openingMessage: string | null = null;
+    let aiMessage: string | null = null;
     try {
       const aiResponse = await this.fastApiClient.startConversation(
         session.id,
@@ -43,10 +43,10 @@ export class PracticeService {
         knownMistakes,
         dto.topic,
       );
-      openingMessage = aiResponse?.message ?? null;
+      aiMessage = aiResponse?.message ?? null;
 
-      if (openingMessage) {
-        await this.sessionsService.addMessage(session.id, 'ASSISTANT', openingMessage);
+      if (aiMessage) {
+        await this.sessionsService.addMessage(session.id, 'ASSISTANT', aiMessage);
       }
     } catch (error) {
       this.logger.warn(
@@ -54,7 +54,7 @@ export class PracticeService {
       );
     }
 
-    return { session, openingMessage };
+    return { session, aiMessage };
   }
 
   async getSession(userId: string, sessionId: string) {
@@ -73,7 +73,7 @@ export class PracticeService {
     const knownMistakes = await this.mistakesService.getMistakeContext(userId);
 
     // Persist user message
-    await this.sessionsService.addMessage(sessionId, 'USER', dto.content);
+    const userMessage = await this.sessionsService.addMessage(sessionId, 'USER', dto.content);
 
     // Build conversation history for context
     const history = session.messages.map((m) => ({
@@ -82,7 +82,7 @@ export class PracticeService {
     }));
 
     // Get AI reply
-    let assistantMessage = '';
+    let assistantText = '';
     try {
       const aiResponse = await this.fastApiClient.continueConversation(
         sessionId,
@@ -92,14 +92,14 @@ export class PracticeService {
         user.level,
         knownMistakes,
       );
-      assistantMessage = aiResponse?.message ?? '';
+      assistantText = aiResponse?.message ?? '';
     } catch (error) {
       this.logger.warn(`AI conversation error: ${error.message}`);
-      assistantMessage = "I'm having trouble responding right now. Please try again.";
+      assistantText = "I'm having trouble responding right now. Please try again.";
     }
 
     // Persist assistant message
-    await this.sessionsService.addMessage(sessionId, 'ASSISTANT', assistantMessage);
+    const aiMessage = await this.sessionsService.addMessage(sessionId, 'ASSISTANT', assistantText);
 
     // Analyze the user's English (non-blocking on error)
     let correction = null;
@@ -138,7 +138,7 @@ export class PracticeService {
       }
     }
 
-    return { assistantMessage, correction };
+    return { userMessage, aiMessage, correction };
   }
 
   async endSession(userId: string, sessionId: string) {

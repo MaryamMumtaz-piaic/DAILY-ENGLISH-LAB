@@ -1,11 +1,12 @@
 import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
 import { SpeechService } from './speech.service';
 import { SpeechController } from './speech.controller';
 import { StorageModule } from '../storage/storage.module';
 import { FastApiModule } from '../fastapi/fastapi.module';
 
 @Module({
-  imports: [StorageModule, FastApiModule],
+  imports: [ConfigModule, StorageModule, FastApiModule],
   controllers: [SpeechController],
   providers: [SpeechService],
 })

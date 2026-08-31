@@ -78,6 +78,31 @@ class SpeechToTextService:
         api_key = self.settings.stt_api_key or self.settings.llm_api_key
         self.client = AsyncOpenAI(api_key=api_key)
 
+    async def _call_whisper(self, audio_bytes: bytes, language: str) -> dict:
+        audio_file = BytesIO(audio_bytes)
+        audio_file.name = "audio.webm"
+        try:
+            transcript = await self.client.audio.transcriptions.create(
+                model="whisper-1",
+                file=audio_file,
+                language=language,
+                response_format="verbose_json",
+            )
+        except APIError as exc:
+            logger.error("stt_transcription_failed", error=str(exc))
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Speech transcription failed. Please try again.",
+            ) from exc
+        return {
+            "transcript": transcript.text,
+            "confidence": 0.95,
+            "duration": getattr(transcript, "duration", None),
+        }
+
+    async def transcribe_bytes(self, audio_bytes: bytes, language: str = "en") -> dict:
+        return await self._call_whisper(audio_bytes, language)
+
     async def transcribe(self, audio_url: str, language: str = "en") -> dict:
         # Validate before making any network request (SSRF prevention)
         _validate_audio_url(audio_url)
@@ -95,28 +120,4 @@ class SpeechToTextService:
                 detail="Could not download audio from the provided URL.",
             ) from exc
 
-        # Wrap bytes in a file-like object; Whisper needs a filename for format detection
-        audio_file = BytesIO(audio_bytes)
-        audio_file.name = "audio.webm"
-
-        try:
-            transcript = await self.client.audio.transcriptions.create(
-                model="whisper-1",
-                file=audio_file,
-                language=language,
-                response_format="verbose_json",
-            )
-        except APIError as exc:
-            logger.error("stt_transcription_failed", error=str(exc))
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Speech transcription failed. Please try again.",
-            ) from exc
-
-        return {
-            "transcript": transcript.text,
-            # Whisper's verbose_json does not expose per-utterance confidence;
-            # use a sensible constant so callers always get a numeric value.
-            "confidence": 0.95,
-            "duration": getattr(transcript, "duration", None),
-        }
+        return await self._call_whisper(audio_bytes, language)

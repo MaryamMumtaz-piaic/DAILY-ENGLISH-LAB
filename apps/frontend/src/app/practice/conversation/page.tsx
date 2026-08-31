@@ -9,9 +9,11 @@ import { useAudioRecorder } from '@/components/speech/useAudioRecorder';
 import { SessionSummary } from '@/components/practice/SessionSummary';
 import { Spinner } from '@/components/ui/Spinner';
 import { Button } from '@/components/ui/Button';
+import { useAuthStore } from '@/store/auth';
 
 export default function ConversationPage() {
   const router = useRouter();
+  const { user, isLoading: authLoading } = useAuthStore();
 
   const [session, setSession] = useState<PracticeSession | null>(null);
   const [messages, setMessages] = useState<PracticeMessage[]>([]);
@@ -27,8 +29,13 @@ export default function ConversationPage() {
   const { state: micState, audioBlob, startRecording, stopRecording, reset: resetMic } = useAudioRecorder();
   const textareaRef = useRef<HTMLInputElement>(null);
 
-  // Initialize session
+  // Wait for auth to resolve, then create session or redirect
   useEffect(() => {
+    if (authLoading) return;
+    if (!user) {
+      router.replace('/login');
+      return;
+    }
     practiceApi
       .createSession('CONVERSATION')
       .then((res) => {
@@ -45,7 +52,7 @@ export default function ConversationPage() {
       })
       .catch(() => setInitError('Failed to start session. Please try again.'))
       .finally(() => setIsInitializing(false));
-  }, []);
+  }, [authLoading, user]);
 
   // Handle audio blob when recording stops
   useEffect(() => {
