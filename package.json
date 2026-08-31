@@ -1,0 +1,15 @@
+{
+  "name": "daily-english-lab",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Daily English Lab — monorepo root. Run `npm run dev` to start all services.",
+  "scripts": {
+    "dev": "concurrently --names \"FRONTEND,BACKEND,AI-SVC\" --prefix-colors \"blue.bold,magenta.bold,cyan.bold\" --prefix \"[{name}]\" --kill-others-on-fail --handle-input \"npm --prefix apps/frontend run dev\" \"npm --prefix apps/backend run start:dev\" \"npm --prefix apps/ai-service run dev\"",
+    "build": "concurrently --names \"FRONTEND,BACKEND\" --prefix-colors \"blue.bold,magenta.bold\" --prefix \"[{name}]\" \"npm --prefix apps/frontend run build\" \"npm --prefix apps/backend run build\"",
+    "install:all": "npm install && npm --prefix apps/frontend install && npm --prefix apps/backend install && pip install -r apps/ai-service/requirements.txt",
+    "lint": "concurrently --names \"FRONTEND,BACKEND\" --prefix-colors \"blue.bold,magenta.bold\" --prefix \"[{name}]\" \"npm --prefix apps/frontend run lint\" \"npm --prefix apps/backend run lint\""
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
